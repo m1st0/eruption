@@ -24,32 +24,42 @@ OK
 ```shell
 $ eruption-netfx
 
-eruption-netfx 0.1.1
+Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-X3n0m0rph59 <x3n0m0rph59@gmail.com>
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright (c) 2019-2022, The Eruption Development Team
 
 A Network FX protocol client for the Eruption Linux user-mode driver
 
-USAGE:
-    eruption-netfx [FLAGS] [ARGS] <SUBCOMMAND>
+Usage: eruption-netfx [OPTIONS] [MODEL] [HOSTNAME] [PORT] <COMMAND>
 
-ARGS:
-    <MODEL>       The keyboard model, e.g. "ROCCAT Vulcan Pro TKL" or "1e7d:311a"
-    <HOSTNAME>    
-    <PORT>        
+Commands:
+  ping         Ping the server
+  command      Send Network FX raw protocol commands to the server
+  image        Load an image file and display it on the connected devices
+  animation    Load image files from a directory and display each one on the connected devices
+  ambient      Make the LEDs of connected devices reflect what is shown on the screen
+  completions  Generate shell completions
+  help         Print this message or the help of the given subcommand(s)
 
-FLAGS:
-    -h, --help       Print help information
-    -v, --verbose    Verbose mode (-v, -vv, -vvv, etc.)
-    -V, --version    Print version information
+Arguments:
+  [MODEL]     The keyboard model, e.g. "ROCCAT Vulcan Pro TKL" or "1e7d:311a"
+  [HOSTNAME]  
+  [PORT]      
 
-SUBCOMMANDS:
-    ambient        Make the LEDs of connected devices reflect what is shown on the screen
-    animation      Load image files from a directory and display each one on the connected
-                   devices
-    command        Send Network FX raw protocol commands to the server
-    completions    Generate shell completions
-    help           Print this message or the help of the given subcommand(s)
-    image          Load an image file and display it on the connected devices
-    ping           Ping the server
+Options:
+  -v, --verbose...  Verbose mode (-v, -vv, -vvv, etc.)
+  -h, --help        Print help information
+  -V, --version     Print version information
+
 ```

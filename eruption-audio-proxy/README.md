@@ -7,23 +7,36 @@ Additionally the `eruption-audio-proxy` can play back sound effects, triggered b
 ### eruption-audio-proxy
 
 ```shell
-eruption-audio-proxy 0.0.9
+$ eruption-audio-proxy
 
-X3n0m0rph59 <x3n0m0rph59@gmail.com>
+Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright (c) 2019-2022, The Eruption Development Team
 
 Audio proxy daemon for the Eruption Linux user-mode driver
 
-USAGE:
-    eruption-audio-proxy [OPTIONS] <SUBCOMMAND>
+Usage: eruption-audio-proxy [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -c, --config <CONFIG>    Sets the configuration file to use
-    -h, --help               Print help information
-    -v, --verbose            Verbose mode (-v, -vv, -vvv, etc.)
-    -V, --version            Print version information
+Commands:
+  daemon       Run in background
+  completions  Generate shell completions
+  help         Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    completions    Generate shell completions
-    daemon         Run in background
-    help           Print this message or the help of the given subcommand(s)
+Options:
+  -v, --verbose...       Verbose mode (-v, -vv, -vvv, etc.)
+  -c, --config <CONFIG>  Sets the configuration file to use
+  -h, --help             Print help information
+  -V, --version          Print version information
+
 ```

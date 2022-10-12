@@ -64,15 +64,13 @@ mod profiles;
 mod scripting;
 mod state;
 
-use plugins::macros;
-use profiles::Profile;
-use scripting::manifest::Manifest;
-use scripting::script;
-
-use crate::plugins::{sdk_support, uleds};
 use crate::{
     color_scheme::ColorScheme,
     hwdevices::{DeviceStatus, MaturityLevel, RGBA},
+    plugins::macros,
+    plugins::{sdk_support, uleds},
+    profiles::Profile,
+    scripting::script,
 };
 
 use crate::threads::DbusApiEvent;
@@ -90,6 +88,18 @@ struct Localizations;
 lazy_static! {
     /// Global configuration
     pub static ref STATIC_LOADER: Arc<Mutex<Option<FluentLanguageLoader>>> = Arc::new(Mutex::new(None));
+
+    pub static ref VERSION: String = {
+        format!(
+            "{} ({}) ({} build)",
+            env!("CARGO_PKG_VERSION"),
+            env!("ERUPTION_GIT_PKG_VERSION"),
+            if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            })
+        };
 }
 
 #[allow(unused)]
@@ -154,9 +164,6 @@ lazy_static! {
     /// The profile that was active before we entered AFK mode
     pub static ref ACTIVE_PROFILE_NAME_BEFORE_AFK: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
-    /// The current "pipeline" of scripts
-    pub static ref ACTIVE_SCRIPTS: Arc<Mutex<Vec<Manifest>>> = Arc::new(Mutex::new(vec![]));
-
     /// Named color schemes, for use in e.g. gradients
     pub static ref NAMED_COLOR_SCHEMES: Arc<RwLock<HashMap<String, ColorScheme>>> =
         Arc::new(RwLock::new(HashMap::new()));
@@ -200,8 +207,11 @@ lazy_static! {
     /// Global "keyboard brightness" modifier
     pub static ref BRIGHTNESS: AtomicIsize = AtomicIsize::new(100);
 
-    /// Global "keyboard brightness" modifier
+    /// Global modifier when fading into a profile
     pub static ref BRIGHTNESS_FADER: AtomicIsize = AtomicIsize::new(0);
+
+    /// Global modifier to compare fading into a profile
+    pub static ref BRIGHTNESS_FADER_BASE: AtomicIsize = AtomicIsize::new(0);
 
     /// AFK timer
     pub static ref LAST_INPUT_TIME: Arc<Mutex<Instant>> = Arc::new(Mutex::new(Instant::now()));
@@ -352,21 +362,20 @@ pub enum DeviceAction {
 
 fn print_header() {
     println!(
-        r#"
- Eruption is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+        r#"Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
- Eruption is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
 
- Copyright (c) 2019-2022, The Eruption Development Team
+Copyright (c) 2019-2022, The Eruption Development Team
 "#
     );
 }
@@ -374,19 +383,7 @@ fn print_header() {
 /// Process commandline options
 fn parse_commandline() -> clap::ArgMatches {
     Command::new("Eruption")
-        .version(
-            format!(
-                "{} ({}) ({} build)",
-                env!("CARGO_PKG_VERSION"),
-                env!("ERUPTION_GIT_PKG_VERSION"),
-                if cfg!(debug_assertions) {
-                    "debug"
-                } else {
-                    "release"
-                }
-            )
-            .as_str(),
-        )
+        .version(VERSION.as_str())
         .author("X3n0m0rph59 <x3n0m0rph59@gmail.com>")
         .about("Realtime RGB LED Driver for Linux")
         .arg(
@@ -394,50 +391,58 @@ fn parse_commandline() -> clap::ArgMatches {
                 .short('c')
                 .long("config")
                 .value_name("FILE")
-                .help("Sets the configuration file to use")
-                .takes_value(true),
+                .help("Sets the configuration file to use"),
         )
         // .arg(
         //     Arg::new("completions")
         //         .long("completions")
         //         .value_name("SHELL")
-        //         .about("Generate shell completions")
-        //         .takes_value(true),
+        //         .about("Generate shell completions"),
         // )
         .get_matches()
 }
 
+pub fn switch_profile_please(profile_file: Option<&Path>) -> Result<SwitchProfileResult> {
+    let dbus_api_tx = crate::DBUS_API_TX.lock();
+    let dbus_api_tx = dbus_api_tx.as_ref().unwrap();
+
+    switch_profile(profile_file, dbus_api_tx, true)
+}
+
+#[derive(PartialEq, Eq)]
+pub enum SwitchProfileResult {
+    Switched,
+    InvalidProfile,
+    FallbackToFailsafe,
+}
+
 /// Switches the currently active profile to the profile file `profile_file`
-/// Returns Ok(true) if the new profile has been activated or the old profile was kept,
-/// otherwise returns Ok(false) when we entered failsafe mode. If an error occurred during
-/// switching to failsafe mode, we return an Err() to signal a fatal error
+/// Returns Ok(Switched) if the new profile has been activated, Ok(InvalidProfile)
+/// if the old profile was kept, or else Ok(FallbackToFailsafe) when we entered
+/// failsafe mode. If an error occurred during switching to failsafe mode, we
+/// return an Err() to signal a fatal error
 pub fn switch_profile(
     profile_file: Option<&Path>,
     dbus_api_tx: &Sender<DbusApiEvent>,
     notify: bool,
-) -> Result<bool> {
+) -> Result<SwitchProfileResult> {
     fn switch_to_failsafe_profile(dbus_api_tx: &Sender<DbusApiEvent>, notify: bool) -> Result<()> {
         let mut errors_present = false;
 
-        // force hardcoded directory for failsafe scripts
-        let script_dir = PathBuf::from("/usr/share/eruption/scripts/");
+        let profile = Profile::new_fail_safe();
 
-        let profile = profiles::get_fail_safe_profile();
-
-        // now spawn a new set of Lua VMs, with scripts from the failsafe profile
-        for (thread_idx, script_file) in profile.active_scripts.iter().enumerate() {
-            // TODO: use path from config
-            let script_path = script_dir.join(&script_file);
-
+        // spawn a new set of Lua VMs, with scripts from the failsafe profile
+        for (thread_idx, manifest) in profile.manifests.values().enumerate() {
             let (lua_tx, lua_rx) = unbounded();
-            threads::spawn_lua_thread(thread_idx, lua_rx, script_path.clone(), None)
+            let parameters = &manifest.get_merged_parameters(&profile);
+            threads::spawn_lua_thread(thread_idx, lua_rx, &manifest.script_file, parameters)
                 .unwrap_or_else(|e| {
                     errors_present = true;
 
                     error!("Could not spawn a thread: {}", e);
                 });
 
-            let mut tx = LuaTx::new(script_path.clone(), lua_tx);
+            let mut tx = LuaTx::new(manifest.script_file.to_owned(), lua_tx);
 
             if errors_present {
                 tx.is_failed = true
@@ -491,7 +496,7 @@ pub fn switch_profile(
 
         debug!("Successfully entered failsafe mode");
 
-        Ok(false)
+        Ok(SwitchProfileResult::FallbackToFailsafe)
     } else {
         // we require profile_file to be set in this branch
         let profile_file = if let Some(profile_file) = profile_file {
@@ -503,147 +508,117 @@ pub fn switch_profile(
 
         info!("Switching to profile: {}", &profile_file.display());
 
-        let profile = profiles::Profile::from(profile_file);
+        let profile = profiles::Profile::load_fully(profile_file);
 
-        if let Ok(profile) = profile {
-            let mut errors_present = false;
+        match profile {
+            Ok(profile) => {
+                let mut errors_present = false;
 
-            // verify script files first; better fail early if we can
-            let script_files = profile.active_scripts.clone();
-            for script_file in script_files.iter() {
-                let script_path = util::match_script_path(&script_file);
-
-                let mut is_script_file_accessible = false;
-                let mut is_manifest_file_accessible = false;
-
-                if let Ok(script_path) = script_path {
-                    is_script_file_accessible = util::is_script_file_accessible(&script_path);
-                    is_manifest_file_accessible = util::is_manifest_file_accessible(&script_path);
-                }
-
-                if !is_script_file_accessible || !is_manifest_file_accessible {
-                    error!(
-                        "Script file or manifest inaccessible: {}",
-                        &script_file.display()
-                    );
-
-                    // errors_present = true;
-
-                    // the profile to switch to refers to invalid script files, so we need to refuse to
-                    // switch profiles and simply keep the current one, or load a failsafe profile if we
-                    // do not have a currently active profile, like e.g. during startup
-                    if crate::ACTIVE_PROFILE.lock().is_none() {
-                        error!("An error occurred during switching of profiles, loading failsafe profile now");
-                        switch_to_failsafe_profile(dbus_api_tx, notify)?;
-
-                        return Ok(false);
+                // request termination of all Lua VMs
+                for lua_tx in LUA_TXS.read().iter() {
+                    if !lua_tx.is_failed {
+                        lua_tx.send(script::Message::Unload).unwrap_or_else(|e| {
+                            error!("Could not send an event to a Lua VM: {}", e)
+                        });
                     } else {
-                        error!(
-                            "Invalid profile: {}, refusing to switch profiles",
-                            profile_file.display()
-                        );
-
-                        return Ok(true);
+                        warn!("Skipping unload of a failed tx");
                     }
                 }
-            }
 
-            // now request termination of all Lua VMs
+                // be safe and clear any leftover channels
+                LUA_TXS.write().clear();
 
-            for lua_tx in LUA_TXS.read().iter() {
-                if !lua_tx.is_failed {
-                    lua_tx
-                        .send(script::Message::Unload)
-                        .unwrap_or_else(|e| error!("Could not send an event to a Lua VM: {}", e));
+                // we passed the point of no return, from here on we can't just go back
+                // but need to switch to failsafe mode when we encounter any critical errors
+
+                let mut num_vms = 0; // only valid if no errors occurred
+
+                // now spawn a new set of Lua VMs, with scripts from the new profile
+                for (thread_idx, manifest) in profile.manifests.values().enumerate() {
+                    let (lua_tx, lua_rx) = unbounded();
+                    if let Err(e) = threads::spawn_lua_thread(
+                        thread_idx,
+                        lua_rx,
+                        &manifest.script_file,
+                        &manifest.get_merged_parameters(&profile),
+                    ) {
+                        errors_present = true;
+
+                        error!("Could not spawn a thread: {}", e);
+                    }
+
+                    let mut tx = LuaTx::new(manifest.script_file.to_owned(), lua_tx);
+
+                    if !errors_present {
+                        num_vms += 1;
+                    } else {
+                        tx.is_failed = true;
+                    }
+
+                    LUA_TXS.write().push(tx);
+                }
+
+                // it seems that at least one Lua VM failed during loading of the new profile,
+                // so we have to switch to failsafe mode to be safe
+                if errors_present || num_vms == 0 {
+                    error!(
+                        "An error occurred during switching of profiles, loading failsafe profile now"
+                    );
+                    switch_to_failsafe_profile(dbus_api_tx, notify)?;
+
+                    Ok(SwitchProfileResult::FallbackToFailsafe)
                 } else {
-                    warn!("Skipping unload of a failed tx");
+                    // everything is fine, finally assign the globally active profile
+                    debug!("Switch successful");
+
+                    let fade_millis = crate::CONFIG
+                        .lock()
+                        .as_ref()
+                        .unwrap()
+                        .get_int("global.profile_fade_milliseconds")
+                        .unwrap_or(constants::FADE_MILLIS as i64);
+                    let fade_frames = (fade_millis * constants::TARGET_FPS as i64 / 1000) as isize;
+                    crate::BRIGHTNESS_FADER.store(fade_frames, Ordering::SeqCst);
+                    crate::BRIGHTNESS_FADER_BASE.store(fade_frames, Ordering::SeqCst);
+
+                    *ACTIVE_PROFILE.lock() = Some(profile);
+
+                    if notify {
+                        dbus_api_tx
+                            .send(DbusApiEvent::ActiveProfileChanged)
+                            .unwrap_or_else(|e| {
+                                error!("Could not send a pending dbus API event: {}", e)
+                            });
+                    }
+
+                    let active_slot = ACTIVE_SLOT.load(Ordering::SeqCst);
+                    let mut slot_profiles = SLOT_PROFILES.lock();
+                    slot_profiles.as_mut().unwrap()[active_slot] = profile_file.into();
+
+                    Ok(SwitchProfileResult::Switched)
                 }
             }
+            Err(e) => {
+                // the profile file to switch to is corrupted, so we need to refuse to switch profiles
+                // and simply keep the current one, or load a failsafe profile if we do not have a
+                // currently active profile, like e.g. during startup of the daemon
+                if crate::ACTIVE_PROFILE.lock().is_none() {
+                    error!(
+                        "An error occurred during switching of profiles, loading failsafe profile now. {}",
+                        e
+                    );
+                    switch_to_failsafe_profile(dbus_api_tx, notify)?;
 
-            // be safe and clear any leftover channels
-            LUA_TXS.write().clear();
-
-            // we passed the point of no return, from here on we can't just go back
-            // but need to switch to failsafe mode when we encounter any critical errors
-
-            let mut num_vms = 0; // only valid if no errors occurred
-
-            // now spawn a new set of Lua VMs, with scripts from the new profile
-            for (thread_idx, script_file) in script_files.iter().enumerate() {
-                let script_path = util::match_script_path(&script_file)?;
-
-                let (lua_tx, lua_rx) = unbounded();
-                if let Err(e) = threads::spawn_lua_thread(
-                    thread_idx,
-                    lua_rx,
-                    script_path.clone(),
-                    Some(profile.clone()),
-                ) {
-                    errors_present = true;
-
-                    error!("Could not spawn a thread: {}", e);
-                }
-
-                let mut tx = LuaTx::new(script_path.clone(), lua_tx);
-
-                if !errors_present {
-                    num_vms += 1;
+                    Ok(SwitchProfileResult::FallbackToFailsafe)
                 } else {
-                    tx.is_failed = true;
+                    error!(
+                        "Invalid profile: {}, refusing to switch profiles. {}",
+                        profile_file.display(),
+                        e
+                    );
+
+                    Ok(SwitchProfileResult::InvalidProfile)
                 }
-
-                LUA_TXS.write().push(tx);
-            }
-
-            // it seems that at least one Lua VM failed during loading of the new profile,
-            // so we have to switch to failsafe mode to be safe
-            if errors_present || num_vms == 0 {
-                error!(
-                    "An error occurred during switching of profiles, loading failsafe profile now"
-                );
-                switch_to_failsafe_profile(dbus_api_tx, notify)?;
-
-                Ok(false)
-            } else {
-                // everything is fine, finally assign the globally active profile
-                debug!("Switch successful");
-
-                crate::BRIGHTNESS_FADER.store(constants::FADE_FRAMES as isize, Ordering::SeqCst);
-
-                *ACTIVE_PROFILE.lock() = Some(profile);
-
-                if notify {
-                    dbus_api_tx
-                        .send(DbusApiEvent::ActiveProfileChanged)
-                        .unwrap_or_else(|e| {
-                            error!("Could not send a pending dbus API event: {}", e)
-                        });
-                }
-
-                let active_slot = ACTIVE_SLOT.load(Ordering::SeqCst);
-                let mut slot_profiles = SLOT_PROFILES.lock();
-                slot_profiles.as_mut().unwrap()[active_slot] = profile_file.into();
-
-                Ok(true)
-            }
-        } else {
-            // the profile file to switch to is corrupted, so we need to refuse to switch profiles
-            // and simply keep the current one, or load a failsafe profile if we do not have a
-            // currently active profile, like e.g. during startup of the daemon
-            if crate::ACTIVE_PROFILE.lock().is_none() {
-                error!(
-                    "An error occurred during switching of profiles, loading failsafe profile now"
-                );
-                switch_to_failsafe_profile(dbus_api_tx, notify)?;
-
-                Ok(false)
-            } else {
-                error!(
-                    "Invalid profile: {}, refusing to switch profiles",
-                    profile_file.display()
-                );
-
-                Ok(true)
             }
         }
     }
@@ -718,7 +693,19 @@ fn run_main_loop(
                 if let Ok(Some(event)) = event {
                     // TODO: support multiple keyboards
                     events::process_keyboard_event(&event, &crate::KEYBOARD_DEVICES.read()[0])
-                        .unwrap_or_else(|e| error!("Could not process a keyboard event: {}", e));
+                        .unwrap_or_else(|e| {
+                            error!(
+                                "Could not process a keyboard event: {}. Trying to close the device now...",
+                                e
+                            );
+
+                            (*crate::KEYBOARD_DEVICES.read()[0])
+                                .write()
+                                .as_device_mut()
+                                .close_all()
+                                .map_err(|_e| error!("An error occurred while closing the device"))
+                                .ok();
+                        });
                 } else {
                     error!(
                         "Could not process a keyboard event: {}",
@@ -730,21 +717,25 @@ fn run_main_loop(
             sel = sel.recv(rx, mapper);
         }
 
-        for (index, rx) in mouse_rxs.iter().enumerate() {
+        for rx in mouse_rxs.iter() {
             let mapper = move |event| {
                 if let Ok(Some(event)) = event {
                     events::process_mouse_event(&event, &crate::MOUSE_DEVICES.read()[0])
-                        .unwrap_or_else(|e| error!("Could not process a mouse event: {}", e));
+                        .unwrap_or_else(|e| {
+                            error!("Could not process a mouse event: {}. Trying to close the device now...", e);
+
+                            (*crate::MOUSE_DEVICES.read()[0])
+                                .write()
+                                .as_device_mut()
+                                .close_all()
+                                .map_err(|_e| error!("An error occurred while closing the device"))
+                                .ok();
+                        });
                 } else {
                     error!(
                         "Could not process a mouse event: {}",
                         event.as_ref().unwrap_err()
                     );
-
-                    FAILED_TXS.write().insert(index);
-
-                    // remove failed devices
-                    REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
                 }
             };
 
@@ -955,6 +946,11 @@ fn run_main_loop(
                     .send(DbusApiEvent::DeviceStatusChanged)
                     .unwrap_or_else(|e| error!("Could not send a pending dbus API event: {}", e));
             }
+
+            // use 'device status poll' code to detect failed/disconnected devices as well,
+            // by forcing a write to the device. This is required for hotplug to work correctly in
+            // case we didn't transfer data to the device for an extended period of time
+            script::FRAME_GENERATION_COUNTER.fetch_add(1, Ordering::SeqCst);
         }
 
         // now, process events from all available sources...
@@ -1019,7 +1015,7 @@ fn run_main_loop(
         }
 
         // compute AFK time
-        let afk_timeout_secs = CONFIG
+        let afk_timeout_secs = crate::CONFIG
             .lock()
             .as_ref()
             .unwrap()
@@ -1041,8 +1037,8 @@ fn run_main_loop(
                 1000 / constants::TARGET_FPS
             );
         } /* else if elapsed_after_sleep < 5_u128 {
-              debug!("Short loop detected");
-              debug!(
+              warn!("Short loop detected");
+              warn!(
                   "Loop took: {} milliseconds, goal: {}",
                   elapsed_after_sleep,
                   1000 / constants::TARGET_FPS
@@ -1505,11 +1501,12 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
 
     // process configuration file
     let config_file = matches
-        .value_of("config")
-        .unwrap_or(constants::DEFAULT_CONFIG_FILE);
+        .get_one("config")
+        .unwrap_or(&constants::DEFAULT_CONFIG_FILE.to_string())
+        .to_string();
 
     let config = Config::builder()
-        .add_source(config::File::new(config_file, config::FileFormat::Toml))
+        .add_source(config::File::new(&config_file, config::FileFormat::Toml))
         .build()
         .unwrap_or_else(|e| {
             log::error!("Could not parse configuration file: {}", e);

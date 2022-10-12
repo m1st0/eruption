@@ -17,12 +17,14 @@
     Copyright (c) 2019-2022, The Eruption Development Team
 */
 
-use std::error::Error;
+use std::{env, error::Error};
 
 fn main() -> Result<(), Box<dyn Error + 'static>> {
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
     prost_build::compile_protos(
-        &["../../../../support/protobuf/sdk-support.proto"],
-        &["../../../../support/protobuf/"],
+        &[&format!("{}/support/protobuf/sdk-support.proto", crate_dir)],
+        &[&format!("{}/support/protobuf/", crate_dir)],
     )?;
 
     Ok(())

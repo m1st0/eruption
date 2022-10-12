@@ -16,8 +16,7 @@
 #    Copyright (c) 2019-2022, The Eruption Development Team
 
 
-BUILDFLAGS := --all --release --features=sourceview
-# BUILDFLAGS := --all --release
+BUILDFLAGS := --release
 
 TARGET_DIR := /usr
 SOURCE_DIR := target/release
@@ -31,6 +30,9 @@ build:
 
 	@echo ""
 	@echo "Now please run 'sudo make install' to install Eruption"
+	@echo ""
+	@echo "If Eruption is already running, stop it first.  Consider:"
+	@echo "'make stop && sudo make install && make start'"
 
 start:
 	@echo "Notifying system daemons about Eruption..."
@@ -75,7 +77,12 @@ install:
 
 	@mkdir -p "/etc/eruption"
 	@mkdir -p "$(TARGET_DIR)/share/doc/eruption"
-	@mkdir -p $(TARGET_DIR)/share/eruption/scripts/{lib/{macros,keymaps,themes,hwdevices/{keyboards,mice}},examples}
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/lib/macros"
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/lib/keymaps"
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/lib/themes"
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/lib/hwdevices/keyboards"
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/lib/hwdevices/mice"
+	@mkdir -p "$(TARGET_DIR)/share/eruption/scripts/examples"
 	@mkdir -p "$(TARGET_DIR)/share/applications"
 	@mkdir -p "$(TARGET_DIR)/share/icons/hicolor/64x64/apps"
 	@mkdir -p "$(TARGET_DIR)/share/eruption-gui/schemas"
@@ -123,6 +130,7 @@ install:
 	@cp "support/man/process-monitor.conf.5" "$(TARGET_DIR)/share/man/man5/"
 	@cp "support/man/eruptionctl.1" "$(TARGET_DIR)/share/man/man1/"
 	@cp "support/man/eruption-hwutil.8" "$(TARGET_DIR)/share/man/man8/"
+	@cp "support/man/eruption-macro.1" "$(TARGET_DIR)/share/man/man1/"
 	@cp "support/man/eruption-keymap.1" "$(TARGET_DIR)/share/man/man1/"
 	@cp "support/man/eruption-netfx.1" "$(TARGET_DIR)/share/man/man1/"
 	@cp "support/man/eruption-audio-proxy.1" "$(TARGET_DIR)/share/man/man1/"
@@ -130,6 +138,7 @@ install:
 	@cp "support/shell/completions/en_US/eruption-cmd.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-cmd"
 	@cp "support/shell/completions/en_US/eruption-hwutil.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-hwutil"
 	@cp "support/shell/completions/en_US/eruption-debug-tool.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-debug-tool"
+	@cp "support/shell/completions/en_US/eruption-macro.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-macro"
 	@cp "support/shell/completions/en_US/eruption-keymap.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-keymap"
 	@cp "support/shell/completions/en_US/eruption-netfx.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-netfx"
 	@cp "support/shell/completions/en_US/eruption-audio-proxy.bash-completion" "$(TARGET_DIR)/share/bash-completion/completions/eruption-audio-proxy"
@@ -138,6 +147,7 @@ install:
 	@cp "support/shell/completions/en_US/eruption-cmd.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-cmd.fish"
 	@cp "support/shell/completions/en_US/eruption-hwutil.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-hwutil.fish"
 	@cp "support/shell/completions/en_US/eruption-debug-tool.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-debug-tool.fish"
+	@cp "support/shell/completions/en_US/eruption-macro.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-macro.fish"
 	@cp "support/shell/completions/en_US/eruption-keymap.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-keymap.fish"
 	@cp "support/shell/completions/en_US/eruption-netfx.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-netfx.fish"
 	@cp "support/shell/completions/en_US/eruption-audio-proxy.fish-completion" "$(TARGET_DIR)/share/fish/completions/eruption-audio-proxy.fish"
@@ -146,6 +156,7 @@ install:
 	@cp "support/shell/completions/en_US/eruption-cmd.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-cmd"
 	@cp "support/shell/completions/en_US/eruption-hwutil.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-hwutil"
 	@cp "support/shell/completions/en_US/eruption-debug-tool.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-debug-tool"
+	@cp "support/shell/completions/en_US/eruption-macro.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-macro"
 	@cp "support/shell/completions/en_US/eruption-keymap.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-keymap"
 	@cp "support/shell/completions/en_US/eruption-netfx.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-netfx"
 	@cp "support/shell/completions/en_US/eruption-audio-proxy.zsh-completion" "$(TARGET_DIR)/share/zsh/site-functions/_eruption-audio-proxy"
@@ -166,8 +177,9 @@ install:
 	@cp target/release/eruption $(TARGET_DIR)/bin/
 	@cp target/release/eruptionctl $(TARGET_DIR)/bin/
 	@cp target/release/eruption-cmd $(TARGET_DIR)/bin/
-	@cp target/release/eruption-hwutil $(TARGET_DIR)/bin/
+	@cp target/release/eruption-macro $(TARGET_DIR)/bin/
 	@cp target/release/eruption-keymap $(TARGET_DIR)/bin/
+	@cp target/release/eruption-hwutil $(TARGET_DIR)/bin/
 	@cp target/release/eruption-netfx $(TARGET_DIR)/bin/
 	@cp target/release/eruption-debug-tool $(TARGET_DIR)/bin/
 	@cp target/release/eruption-hotplug-helper $(TARGET_DIR)/bin/
@@ -189,6 +201,7 @@ uninstall:
 	-@rm $(TARGET_DIR)/bin/eruptionctl
 	-@rm $(TARGET_DIR)/bin/eruption-cmd
 	-@rm $(TARGET_DIR)/bin/eruption-hwutil
+	-@rm $(TARGET_DIR)/bin/eruption-macro
 	-@rm $(TARGET_DIR)/bin/eruption-keymap
 	-@rm $(TARGET_DIR)/bin/eruption-netfx
 	-@rm $(TARGET_DIR)/bin/eruption-debug-tool
@@ -221,6 +234,7 @@ uninstall:
 	-@rm $(TARGET_DIR)/share/man/man1/eruptionctl.1
 	-@rm $(TARGET_DIR)/share/man/man8/eruption-hwutil.8
 	-@rm $(TARGET_DIR)/share/man/man1/eruption-netfx.1
+	-@rm $(TARGET_DIR)/share/man/man1/eruption-macro.1
 	-@rm $(TARGET_DIR)/share/man/man1/eruption-keymap.1
 	-@rm $(TARGET_DIR)/share/man/man1/eruption-audio-proxy.1
 	-@rm $(TARGET_DIR)/share/man/man1/eruption-process-monitor.1
@@ -228,6 +242,7 @@ uninstall:
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-cmd
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-hwutil
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-debug-tool
+	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-macro
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-keymap
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-netfx
 	-@rm $(TARGET_DIR)/share/bash-completion/completions/eruption-audio-proxy
@@ -236,6 +251,7 @@ uninstall:
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-cmd.fish
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-hwutil.fish
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-debug-tool.fish
+	-@rm $(TARGET_DIR)/share/fish/completions/eruption-macro.fish
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-keymap.fish
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-netfx.fish
 	-@rm $(TARGET_DIR)/share/fish/completions/eruption-audio-proxy.fish
@@ -244,6 +260,7 @@ uninstall:
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-cmd
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-hwutil
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-debug-tool
+	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-macro
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-keymap
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-netfx
 	-@rm $(TARGET_DIR)/share/zsh/site-functions/_eruption-audio-proxy
@@ -267,4 +284,7 @@ check:
 clean:
 	@cargo clean
 
-.PHONY: check clean all start stop install uninstall build
+test:
+	@cargo test
+
+.PHONY: check clean all start stop install uninstall build test

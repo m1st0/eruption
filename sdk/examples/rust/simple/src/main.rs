@@ -17,9 +17,9 @@
     Copyright (c) 2019-2022, The Eruption Development Team
 */
 
-use eruption_rs::canvas::Canvas;
-use eruption_rs::color::Color;
-use eruption_rs::connection::{Connection, ConnectionType};
+use eruption_sdk::canvas::Canvas;
+use eruption_sdk::color::Color;
+use eruption_sdk::connection::{Connection, ConnectionType};
 use std::thread;
 use std::time::Duration;
 
@@ -30,7 +30,7 @@ fn main() -> Result<(), eyre::Error> {
         "Welcome to the Eruption SDK!\nYou are running the \"{}\" \
         from the Eruption SDK version {}\n",
         EXAMPLE_NAME,
-        eruption_rs::SDK_VERSION
+        eruption_sdk::SDK_VERSION
     );
 
     println!("Connecting to the Eruption daemon...");

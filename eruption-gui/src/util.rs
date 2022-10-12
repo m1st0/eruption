@@ -17,25 +17,25 @@
     Copyright (c) 2019-2022, The Eruption Development Team
 */
 
-// use crate::manifest;
-use crate::{constants, dbus_client, manifest, preferences, profiles};
+use crate::{constants, dbus_client, preferences, profiles};
 use byteorder::{ByteOrder, LittleEndian};
 use dbus::blocking::stdintf::org_freedesktop_dbus::Properties;
 use dbus::blocking::Connection;
-// use manifest::Manifest;
-// use std::fs;
-use crate::manifest::ManifestError;
 use lazy_static::lazy_static;
+use log::warn;
 use parking_lot::Mutex;
-use std::collections::HashMap;
-use std::u8;
-use std::{convert::TryFrom, process::Command};
 use std::{
+    collections::HashMap,
+    convert::TryFrom,
+    fs,
     path::{Path, PathBuf},
     process::Child,
+    process::Command,
     sync::Arc,
+    thread,
+    time::Duration,
+    u8,
 };
-use std::{thread, time::Duration};
 
 type Result<T> = std::result::Result<T, eyre::Error>;
 
@@ -50,6 +50,19 @@ pub enum UtilError {
 
     #[error("Daemon restart failed")]
     RestartFailed,
+
+    #[error("File not found: {description}")]
+    FileNotFound { description: String },
+
+    #[error("Read failed: {description}")]
+    FileReadError {
+        #[source]
+        source: std::io::Error,
+        description: String,
+    },
+
+    #[error("Not a file")]
+    NotAFile {},
     // #[error("Unknown error: {description}")]
     // UnknownError { description: String },
 }
@@ -90,16 +103,14 @@ pub fn color_to_gdk_rgba(c: u32) -> gdk::RGBA {
     let alpha = u8::try_from((c >> 24) & 0xff).unwrap();
     let red = u8::try_from((c >> 16) & 0xff).unwrap();
     let green = u8::try_from((c >> 8) & 0xff).unwrap();
-    let blue = u8::try_from((c >> 0) & 0xff).unwrap();
+    let blue = u8::try_from(c & 0xff).unwrap();
 
-    let result = gdk::RGBA::new(
+    gdk::RGBA::new(
         red as f64 / 255.0,
         green as f64 / 255.0,
         blue as f64 / 255.0,
         alpha as f64 / 255.0,
-    );
-
-    result
+    )
 }
 
 /// Switch the currently active profile
@@ -267,7 +278,7 @@ pub fn set_brightness(brightness: i64) -> Result<()> {
         Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS as u64),
     );
 
-    let arg = Box::new(brightness as i64);
+    let arg = Box::new(brightness);
 
     proxy.set("org.eruption.Config", "Brightness", arg)?;
 
@@ -444,7 +455,7 @@ pub fn get_script_dirs() -> Vec<PathBuf> {
 
     // if we could not determine a valid set of paths, use a hard coded fallback instead
     if result.is_empty() {
-        log::warn!("Using default fallback script directory");
+        warn!("Using default fallback script directory");
 
         let path = PathBuf::from(constants::DEFAULT_SCRIPT_DIR);
         result.push(path);
@@ -454,16 +465,71 @@ pub fn get_script_dirs() -> Vec<PathBuf> {
 }
 
 /// Returns the absolute path of a script file
-pub fn match_script_file(script: &Path) -> Result<PathBuf> {
-    let scripts = manifest::get_script_files()?;
+pub fn match_script_path<P: AsRef<Path>>(script_file: &P) -> Result<PathBuf> {
+    let script_file = script_file.as_ref();
 
-    for f in scripts {
-        if f.file_name().unwrap_or_default() == script {
-            return Ok(f);
+    for dir in get_script_dirs().iter() {
+        let script_path = dir.join(script_file);
+
+        if let Ok(metadata) = fs::metadata(&script_path) {
+            if metadata.is_file() {
+                return Ok(script_path.canonicalize()?);
+            }
         }
     }
 
-    Err(ManifestError::ScriptEnumerationError {}.into())
+    Err(UtilError::FileNotFound {
+        description: format!(
+            "Could not find file in search path(s): {}",
+            &script_file.display()
+        ),
+    }
+    .into())
+}
+
+pub fn demand_file_is_accessible<P: AsRef<Path>>(p: P) -> Result<()> {
+    // Does the path exist?
+    let path = match fs::canonicalize(p) {
+        Ok(path) => path,
+        Err(e) => {
+            return Err(UtilError::FileReadError {
+                source: e,
+                description: "Could not find file".to_owned(),
+            }
+            .into())
+        }
+    };
+
+    // Is the metadata readable?
+    let metadata = match fs::metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(e) => {
+            return Err(UtilError::FileReadError {
+                source: e,
+                description: "Could not read metadata".to_owned(),
+            }
+            .into())
+        }
+    };
+
+    // Is the path a regular file?  (Symlinks will have been canonicalized to regular files.)
+    if !metadata.is_file() {
+        return Err(UtilError::NotAFile {}.into());
+    }
+
+    // Is the file readable?
+    match fs::File::open(&path) {
+        Err(e) => {
+            return Err(UtilError::FileReadError {
+                source: e,
+                description: "Could not open file".to_owned(),
+            }
+            .into())
+        }
+        _ => {}
+    };
+
+    Ok(())
 }
 
 pub fn enumerate_profiles() -> Result<Vec<profiles::Profile>> {
@@ -506,7 +572,7 @@ pub fn toggle_netfx_ambient(enabled: bool) -> Result<()> {
             .arg(&model)
             .arg(&host_name)
             .arg(&format!("{}", port_number))
-            .arg(&"ambient")
+            .arg("ambient")
             .spawn()?;
 
         *NETFX_PROCESS_HANDLE.lock() = Some(handle);

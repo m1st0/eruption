@@ -17,23 +17,35 @@ $ sudo eruption-hotplug-helper hotplug
 ### eruption-hotplug-helper
 
 ```shell
-$ eruption-hotplug-helper
-eruption-hotplug-helper 0.1.2
+$ eruption-hotplug-helper --help
 
-X3n0m0rph59 <x3n0m0rph59@gmail.com>
+Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright (c) 2019-2022, The Eruption Development Team
 
 A utility used to notify Eruption about device hotplug events
 
-USAGE:
-    eruption-hotplug-helper [FLAGS] <SUBCOMMAND>
+Usage: eruption-hotplug-helper [OPTIONS] <COMMAND>
 
-FLAGS:
-    -h, --help       Print help information
-    -v, --verbose    Verbose mode (-v, -vv, -vvv, etc.)
-    -V, --version    Print version information
+Commands:
+  hotplug      Trigger a hotplug event
+  completions  Generate shell completions
+  help         Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    completions    Generate shell completions
-    help           Print this message or the help of the given subcommand(s)
-    hotplug        Trigger a hotplug event
+Options:
+  -v, --verbose...  Verbose mode (-v, -vv, -vvv, etc.)
+  -h, --help        Print help information
+  -V, --version     Print version information
+
 ```

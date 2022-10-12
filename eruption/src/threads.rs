@@ -21,17 +21,18 @@ use evdev_rs::enums::EV_SYN;
 use evdev_rs::{Device, DeviceWrapper, GrabMode};
 use flume::{unbounded, Receiver, Sender};
 use log::{debug, error, info, trace, warn};
+use std::collections::BTreeMap;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::{
-    constants, dbus_interface, hwdevices, macros, plugins, script, sdk_support, uleds, util,
-    DeviceAction, EvdevError, KeyboardDevice, MainError, MouseDevice, Profile,
-    COLOR_MAPS_READY_CONDITION, FAILED_TXS, KEY_STATES, LUA_TXS, QUIT, REQUEST_FAILSAFE_MODE, RGBA,
-    SDK_SUPPORT_ACTIVE, ULEDS_SUPPORT_ACTIVE,
+    constants, dbus_interface, hwdevices, macros, plugins, script,
+    scripting::parameters::PlainParameter, sdk_support, uleds, DeviceAction, EvdevError,
+    KeyboardDevice, MainError, MouseDevice, COLOR_MAPS_READY_CONDITION, FAILED_TXS, KEY_STATES,
+    LUA_TXS, QUIT, REQUEST_FAILSAFE_MODE, RGBA, SDK_SUPPORT_ACTIVE, ULEDS_SUPPORT_ACTIVE,
 };
 
 pub type Result<T> = std::result::Result<T, eyre::Error>;
@@ -182,11 +183,20 @@ pub fn spawn_keyboard_input_thread(
                             let is_pressed = k.1.value > 0;
                             let index = keyboard_device.read().ev_key_to_key_index(*code) as usize;
 
-                            KEY_STATES.write()[index] = is_pressed;
+                            {
+                                KEY_STATES.write()[index] = is_pressed;
+                            }
                         }
 
                         kbd_tx.send(Some(k.1)).unwrap_or_else(|e| {
-                            error!("Could not send a keyboard event to the main thread: {}", e)
+                            error!("Could not send a keyboard event to the main thread: {}", e);
+
+                            // try to recover from an invalid state
+                            keyboard_device.write().close_all().unwrap_or_else(|e| {
+                                warn!("Could not close the device: {}", e);
+                            });
+
+                            crate::REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
                         });
 
                         // update AFK timer
@@ -196,6 +206,12 @@ pub fn spawn_keyboard_input_thread(
                     Err(e) => {
                         if e.raw_os_error().unwrap() == libc::ENODEV {
                             warn!("Keyboard device went away: {}", e);
+
+                            keyboard_device
+                                .write()
+                                .close_all()
+                                .map_err(|_e| error!("An error occurred while closing the device"))
+                                .ok();
 
                             // we need to terminate and then re-enter the main loop to update all global state
                             crate::REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
@@ -349,7 +365,14 @@ pub fn spawn_mouse_input_thread(
                         }
 
                         mouse_tx.send(Some(k.1)).unwrap_or_else(|e| {
-                            error!("Could not send a mouse event to the main thread: {}", e)
+                            error!("Could not send a mouse event to the main thread: {}", e);
+
+                            // try to recover from an invalid state
+                            mouse_device.write().close_all().unwrap_or_else(|e| {
+                                warn!("Could not close the device: {}", e);
+                            });
+
+                            crate::REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
                         });
 
                         // update AFK timer
@@ -359,6 +382,12 @@ pub fn spawn_mouse_input_thread(
                     Err(e) => {
                         if e.raw_os_error().unwrap() == libc::ENODEV {
                             warn!("Mouse device went away: {}", e);
+
+                            mouse_device
+                                .write()
+                                .close_all()
+                                .map_err(|_e| error!("An error occurred while closing the device"))
+                                .ok();
 
                             // we need to terminate and then re-enter the main loop to update all global state
                             crate::REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
@@ -540,7 +569,7 @@ pub fn spawn_mouse_input_thread(
 /// Spawns the misc devices input thread and executes it's main loop
 pub fn spawn_misc_input_thread(
     misc_tx: Sender<Option<evdev_rs::InputEvent>>,
-    _misc_device: crate::MiscDevice,
+    misc_device: crate::MiscDevice,
     device_index: usize,
     usb_vid: u16,
     usb_pid: u16,
@@ -631,6 +660,12 @@ pub fn spawn_misc_input_thread(
                         if e.raw_os_error().unwrap() == libc::ENODEV {
                             warn!("Misc device went away: {}", e);
 
+                            misc_device
+                                .write()
+                                .close_all()
+                                .map_err(|_e| error!("An error occurred while closing the device"))
+                                .ok();
+
                             // we need to terminate and then re-enter the main loop to update all global state
                             crate::REENTER_MAIN_LOOP.store(true, Ordering::SeqCst);
 
@@ -658,48 +693,35 @@ pub fn spawn_misc_input_thread(
 pub fn spawn_lua_thread(
     thread_idx: usize,
     lua_rx: Receiver<script::Message>,
-    script_path: PathBuf,
-    profile: Option<Profile>,
+    script_file: &Path,
+    parameters: &[PlainParameter],
 ) -> Result<()> {
-    info!("Loading Lua script: {}", &script_path.display());
-
-    let result = util::is_file_accessible(&script_path);
-    if let Err(result) = result {
-        error!(
-            "Script file {} is not accessible: {}",
-            script_path.display(),
-            result
-        );
-
-        return Err(MainError::ScriptExecError {}.into());
-    }
-
-    let result = util::is_file_accessible(util::get_manifest_for(&script_path));
-    if let Err(result) = result {
-        error!(
-            "Manifest file for script {} is not accessible: {}",
-            script_path.display(),
-            result
-        );
-
-        return Err(MainError::ScriptExecError {}.into());
-    }
+    info!("Loading Lua script: {}", script_file.display());
 
     let builder = thread::Builder::new().name(format!(
         "{}:{}",
         thread_idx,
-        script_path.file_name().unwrap().to_string_lossy(),
+        script_file.file_name().unwrap().to_string_lossy(),
     ));
+
+    let script_file = script_file.to_path_buf();
+    let mut parameter_values: BTreeMap<String, PlainParameter> = parameters
+        .iter()
+        .map(|pv| (pv.name.clone(), pv.clone()))
+        .collect();
 
     builder.spawn(move || -> Result<()> {
         #[cfg(feature = "profiling")]
         coz::thread_init();
 
-        #[allow(clippy::never_loop)]
         loop {
-            let result = script::run_script(script_path.clone(), profile, &lua_rx);
+            let result = script::run_script(&script_file, &mut parameter_values, &lua_rx);
 
             match result {
+                Ok(script::RunScriptResult::RestartScript) => {
+                    debug!("Restarting script {}", script_file.to_string_lossy());
+                }
+
                 Ok(script::RunScriptResult::TerminatedGracefully) => return Ok(()),
 
                 Ok(script::RunScriptResult::TerminatedWithErrors) => {
@@ -817,7 +839,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
                                             r: ((((fg.a as f32) * fg.r as f32 + (255 - fg.a) as f32 * bg.r as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
                                             g: ((((fg.a as f32) * fg.g as f32 + (255 - fg.a) as f32 * bg.g as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
                                             b: ((((fg.a as f32) * fg.b as f32 + (255 - fg.a) as f32 * bg.b as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
-                                            a: fg.a as u8,
+                                            a: fg.a,
                                         };
 
                                         *background = color;
@@ -840,7 +862,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
                                             r: ((((fg.a as f32) * fg.r as f32 + (255 - fg.a) as f32 * bg.r as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
                                             g: ((((fg.a as f32) * fg.g as f32 + (255 - fg.a) as f32 * bg.g as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
                                             b: ((((fg.a as f32) * fg.b as f32 + (255 - fg.a) as f32 * bg.b as f32).floor() * brightness as f32 / 100.0) as u32 >> 8) as u8,
-                                            a: fg.a as u8,
+                                            a: fg.a,
                                         };
 
                                         *background = color;
@@ -894,7 +916,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
                                             warn!("Could not query device status");
                                         }
                                     } else {
-                                        warn!("Skipped rendering a frame to a device, because we could not acquire a lock");
+                                        debug!("Skipped rendering a frame to a device, because we could not acquire a lock");
                                     }
                                 }
 
@@ -932,7 +954,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
                                             warn!("Could not query device status");
                                         }
                                     } else {
-                                        warn!("Skipped rendering a frame to a device, because we could not acquire a lock");
+                                        debug!("Skipped rendering a frame to a device, because we could not acquire a lock");
                                     }
                                 }
 
@@ -970,7 +992,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
                                             warn!("Could not query device status");
                                         }
                                     } else {
-                                        warn!("Skipped rendering a frame to a device, because we could not acquire a lock");
+                                        debug!("Skipped rendering a frame to a device, because we could not acquire a lock");
                                     }
                                 }
 
@@ -987,7 +1009,7 @@ pub fn spawn_device_io_thread(dev_io_rx: Receiver<DeviceAction>) -> Result<()> {
 
                         // calculate and log fps each second
                         if fps_timer.elapsed().as_millis() >= 1000 {
-                            debug!("FPS: {}", fps_counter);
+                            trace!("FPS: {}", fps_counter);
 
                             fps_timer = Instant::now();
                             fps_counter = 0;

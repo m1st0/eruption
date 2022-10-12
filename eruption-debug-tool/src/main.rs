@@ -17,7 +17,8 @@
     Copyright (c) 2019-2022, The Eruption Development Team
 */
 
-use clap::{IntoApp, Parser};
+use clap::CommandFactory;
+use clap::Parser;
 use clap_complete::Shell;
 use colored::*;
 use flume::unbounded;
@@ -130,7 +131,7 @@ pub enum MainError {
 )]
 pub struct Options {
     /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[clap(short, long, parse(from_occurrences))]
+    #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
     #[clap(subcommand)]
@@ -167,7 +168,7 @@ pub enum Subcommands {
         device: usize,
 
         /// ID of the USB HID report
-        #[clap(parse(try_from_str = util::parse_report_id))]
+        #[clap(value_parser = util::parse_report_id)]
         report_id: u8,
 
         /// Length in bytes to read
@@ -189,7 +190,7 @@ pub enum Subcommands {
         device: usize,
 
         /// ID of the USB HID report
-        #[clap(parse(try_from_str = util::parse_report_id))]
+        #[clap(value_parser = util::parse_report_id)]
         report_id: u8,
 
         /// Length in bytes to read
@@ -239,21 +240,20 @@ pub enum UtilsSubcommands {
 #[allow(dead_code)]
 fn print_header() {
     println!(
-        r#"
- Eruption is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+        r#"Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
- Eruption is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
 
- Copyright (c) 2019-2022, The Eruption Development Team
+Copyright (c) 2019-2022, The Eruption Development Team
 "#
     );
 }

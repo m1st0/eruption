@@ -14,7 +14,7 @@
 # How to build and install Eruption from source
 
 To build Eruption from source you need to have `git` and `rust` installed, and you need to install the build
-dependencies of Eruption as well. You need at least the current `stable` release of `rust` (MSRV: `1.58`).
+dependencies of Eruption as well. You need at least the current `stable` release of `rust` (MSRV: `1.64`).
 You probably may want to use [https://rustup.rs/](https://rustup.rs/).
 
 ### Install build dependencies
@@ -23,7 +23,7 @@ You probably may want to use [https://rustup.rs/](https://rustup.rs/).
 
 ```shell
 sudo pacman -Sy libevdev hidapi systemd-libs dbus libpulse lua lua-socket gtksourceview4
-sudo pacman -Sy pkgconf cmake protobuf xorg-server-devel libxrandr gtk3
+sudo pacman -Sy gcc pkgconf make cmake protobuf xorg-server-devel libxrandr gtk3
 ```
 
 #### On Fedora-based distros
@@ -77,6 +77,7 @@ Finally, if you want to use one of the audio visualizer profiles, then please se
 using `pavucontrol`.
 
 Switch to a profile that utilizes the audio API of Eruption:
+
 ```shell
 eruptionctl switch profile spectrum-analyzer-swirl.profile
 ```

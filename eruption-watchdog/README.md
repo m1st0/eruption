@@ -18,7 +18,7 @@ $ sudo eruption-watchdog
 ### eruption-watchdog
 
 ```shell
-$ eruption-watchdog
+$ eruption-watchdog 
 
 Eruption is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,20 +35,18 @@ along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (c) 2019-2022, The Eruption Development Team
 
-eruption-watchdog 0.0.1
-X3n0m0rph59 <x3n0m0rph59@gmail.com>
 A watchdog daemon for Eruption
 
-USAGE:
-    eruption-watchdog [OPTIONS] <SUBCOMMAND>
+Usage: eruption-watchdog [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -h, --help       Print help information
-    -v, --verbose    Verbose mode (-v, -vv, -vvv, etc.)
-    -V, --version    Print version information
+Commands:
+  daemon       Run watchdog daemon for Eruption
+  completions  Generate shell completions
+  help         Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    completions    Generate shell completions
-    daemon         Run watchdog daemon for Eruption
-    help           Print this message or the help of the given subcommand(s)
+Options:
+  -v, --verbose...  Verbose mode (-v, -vv, -vvv, etc.)
+  -h, --help        Print help information
+  -V, --version     Print version information
+
 ```

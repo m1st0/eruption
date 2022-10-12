@@ -24,9 +24,9 @@ use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
-use crate::profiles;
+use crate::profiles::Profile;
+use crate::scripting::parameters::{ManifestConfiguration, PlainParameter, ToPlainParameter};
 use crate::util;
 use crate::util::get_script_dirs;
 
@@ -35,190 +35,24 @@ pub type Result<T> = std::result::Result<T, eyre::Error>;
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ManifestError {
     #[error("Could not open file for reading")]
-    OpenError {},
+    OpenError,
 
     #[error("Could not parse manifest file")]
-    ParseError {},
+    ParseError,
 
     #[error("Could not enumerate script files")]
-    ScriptEnumerationError {},
+    ScriptEnumerationError,
 
     #[error("Could not parse a param value")]
-    ParseParamError {},
-}
-
-fn default_id() -> usize {
-    0
+    ParseParamError,
 }
 
 fn default_script_file() -> PathBuf {
     "".into()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum ConfigParam {
-    Int {
-        name: String,
-        description: String,
-        min: Option<i64>,
-        max: Option<i64>,
-        default: i64,
-    },
-    Float {
-        name: String,
-        description: String,
-        min: Option<f64>,
-        max: Option<f64>,
-        default: f64,
-    },
-    Bool {
-        name: String,
-        description: String,
-        default: bool,
-    },
-    String {
-        name: String,
-        description: String,
-        default: String,
-    },
-    Color {
-        name: String,
-        description: String,
-        min: Option<u32>,
-        max: Option<u32>,
-        default: u32,
-    },
-}
-
-pub trait ParseConfig {
-    fn parse_config_param(&self, param: &str, val: &str) -> Result<profiles::ConfigParam>;
-}
-
-impl ParseConfig for Vec<ConfigParam> {
-    fn parse_config_param(&self, param: &str, val: &str) -> Result<profiles::ConfigParam> {
-        for p in self.iter() {
-            match &p {
-                ConfigParam::Int { name, default, .. } => {
-                    if name == param {
-                        let value =
-                            i64::from_str(val).map_err(|_e| ManifestError::ParseParamError {})?;
-
-                        return Ok(profiles::ConfigParam::Int {
-                            name: name.to_string(),
-                            value,
-                            default: *default,
-                        });
-                    }
-                }
-
-                ConfigParam::Float { name, default, .. } => {
-                    if name == param {
-                        let value =
-                            f64::from_str(val).map_err(|_e| ManifestError::ParseParamError {})?;
-
-                        return Ok(profiles::ConfigParam::Float {
-                            name: name.to_string(),
-                            value,
-                            default: *default,
-                        });
-                    }
-                }
-
-                ConfigParam::Bool { name, default, .. } => {
-                    if name == param {
-                        let value =
-                            bool::from_str(val).map_err(|_e| ManifestError::ParseParamError {})?;
-
-                        return Ok(profiles::ConfigParam::Bool {
-                            name: name.to_string(),
-                            value,
-                            default: *default,
-                        });
-                    }
-                }
-
-                ConfigParam::String { name, default, .. } => {
-                    if name == param {
-                        let value = val.to_owned();
-
-                        return Ok(profiles::ConfigParam::String {
-                            name: name.to_string(),
-                            value,
-                            default: default.to_owned(),
-                        });
-                    }
-                }
-
-                ConfigParam::Color { name, default, .. } => {
-                    if name == param {
-                        if &val[0..1] == "#" {
-                            let value = u32::from_str_radix(&val[1..], 16)
-                                .map_err(|_e| ManifestError::ParseParamError {})?;
-
-                            return Ok(profiles::ConfigParam::Color {
-                                name: name.to_string(),
-                                value,
-                                default: *default,
-                            });
-                        } else {
-                            let value = u32::from_str(val)
-                                .map_err(|_e| ManifestError::ParseParamError {})?;
-
-                            return Ok(profiles::ConfigParam::Color {
-                                name: name.to_string(),
-                                value,
-                                default: *default,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        Err(ManifestError::ParseParamError {}.into())
-    }
-}
-
-pub trait GetAttr {
-    fn get_name(&self) -> &String;
-    fn get_default(&self) -> String;
-}
-
-impl GetAttr for ConfigParam {
-    fn get_name(&self) -> &String {
-        match self {
-            ConfigParam::Int { ref name, .. } => name,
-
-            ConfigParam::Float { ref name, .. } => name,
-
-            ConfigParam::Bool { ref name, .. } => name,
-
-            ConfigParam::String { ref name, .. } => name,
-
-            ConfigParam::Color { ref name, .. } => name,
-        }
-    }
-
-    fn get_default(&self) -> String {
-        match self {
-            ConfigParam::Int { ref default, .. } => format!("{}", default),
-
-            ConfigParam::Float { ref default, .. } => format!("{}", default),
-
-            ConfigParam::Bool { ref default, .. } => format!("{}", default),
-
-            ConfigParam::String { ref default, .. } => default.to_owned(),
-
-            ConfigParam::Color { ref default, .. } => format!("#{:06x}", default),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Manifest {
-    #[serde(default = "default_id")]
-    pub id: usize,
     #[serde(default = "default_script_file")]
     pub script_file: PathBuf,
 
@@ -228,7 +62,8 @@ pub struct Manifest {
     pub author: String,
     pub min_supported_version: String,
     pub tags: Option<Vec<ScriptTag>>,
-    pub config: Option<Vec<ConfigParam>>,
+    #[serde(default)]
+    pub config: ManifestConfiguration,
 }
 
 impl std::cmp::PartialOrd for Manifest {
@@ -238,22 +73,23 @@ impl std::cmp::PartialOrd for Manifest {
 }
 
 impl Manifest {
-    pub fn new(id: usize, script: &Path) -> Result<Self> {
-        // parse manifest
-        match fs::read_to_string(util::get_manifest_for(script)) {
+    pub fn load(script_path: &Path) -> Result<Self> {
+        let (script_path, manifest_path) = verify_script_and_manifest_paths(script_path)?;
+
+        match fs::read_to_string(&manifest_path) {
             Ok(toml) => {
                 // parse manifest
                 match toml::de::from_str::<Self>(&toml) {
                     Ok(mut result) => {
                         // fill in required fields, after parsing
-                        result.id = id;
-                        result.script_file = script.to_path_buf();
+                        result.script_file = script_path;
 
                         Ok(result)
                     }
 
                     Err(e) => {
                         error!("{}", e);
+                        println!("{}", e);
                         Err(ManifestError::ParseError {}.into())
                     }
                 }
@@ -263,9 +99,95 @@ impl Manifest {
         }
     }
 
-    pub fn from(script: &Path) -> Result<Self> {
-        Self::new(default_id(), script)
+    pub fn get_merged_parameters(&self, profile: &Profile) -> Vec<PlainParameter> {
+        let profile_script_parameters = profile.config.get_parameters(&self.name);
+        if let Some(profile_script_parameters) = profile_script_parameters {
+            self.config
+                .iter()
+                .map(|manifest_parameter| {
+                    match profile_script_parameters.get_parameter(&manifest_parameter.name) {
+                        Some(profile_parameter) => profile_parameter.to_plain_parameter(),
+                        None => {
+                            debug!(
+                                "Parameter {} is undefined. Using defaults from script manifest.",
+                                manifest_parameter.name
+                            );
+                            manifest_parameter.to_plain_parameter()
+                        }
+                    }
+                })
+                .collect()
+        } else {
+            debug!("Active profile does not have {} config. Using config parameters from script manifest.", &self.name);
+            self.config.iter().map(|p| p.to_plain_parameter()).collect()
+        }
     }
+}
+
+fn verify_script_and_manifest_paths(script_path: &Path) -> Result<(PathBuf, PathBuf)> {
+    let script_path = if script_path.exists() {
+        script_path.to_owned()
+    } else {
+        match util::match_script_path(&script_path) {
+            Ok(script_path) => script_path,
+            Err(error) => {
+                error!(
+                    "Script file {} cannot be found: {}",
+                    script_path.display(),
+                    error
+                );
+                return Err(ManifestError::OpenError {}.into());
+            }
+        }
+    };
+
+    let manifest_path = util::get_manifest_for(&script_path);
+
+    let script_path = match script_path.canonicalize() {
+        Ok(script_path) => script_path,
+        Err(err) => {
+            error!(
+                "Script file path {} could not be canonicalized: {}",
+                script_path.display(),
+                err
+            );
+            return Err(ManifestError::OpenError {}.into());
+        }
+    };
+
+    let manifest_path = match manifest_path.canonicalize() {
+        Ok(manifest_path) => manifest_path,
+        Err(err) => {
+            error!(
+                "Manifest file path {} could not be canonicalized: {}",
+                manifest_path.display(),
+                err
+            );
+            return Err(ManifestError::OpenError {}.into());
+        }
+    };
+
+    if let Err(err) = util::demand_file_is_accessible(&script_path) {
+        error!(
+            "Script file {} is not accessible: {}",
+            script_path.display(),
+            err
+        );
+
+        return Err(ManifestError::OpenError {}.into());
+    }
+
+    if let Err(err) = util::demand_file_is_accessible(&manifest_path) {
+        error!(
+            "Manifest file for script {} is not accessible: {}",
+            script_path.display(),
+            err
+        );
+
+        return Err(ManifestError::OpenError {}.into());
+    }
+
+    Ok((script_path, manifest_path))
 }
 
 /// Get a `Vec` of `PathBufs` of available script files in the directory `script_path`.
@@ -279,7 +201,7 @@ pub fn get_script_files_from(script_dirs: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let mut result = vec![];
 
     for script_path in script_dirs {
-        if let Ok(paths) = fs::read_dir(&script_path) {
+        if let Ok(paths) = fs::read_dir(script_path) {
             let mut script_paths = paths
                 .map(|p| p.unwrap().path())
                 .filter(|p| {
@@ -305,8 +227,8 @@ pub fn get_scripts() -> Result<Vec<Manifest>> {
     let mut errors_present = false;
     let mut result: Vec<Manifest> = vec![];
 
-    for (id, script_file) in script_files.iter().enumerate() {
-        match Manifest::new(id, script_file) {
+    for script_file in &script_files {
+        match Manifest::load(script_file) {
             Ok(manifest) => {
                 result.push(manifest);
             }
@@ -340,11 +262,6 @@ pub fn get_scripts() -> Result<Vec<Manifest>> {
             result
         }
     });
-
-    // update ids
-    for (cntr, mut s) in result.iter_mut().enumerate() {
-        s.id = cntr;
-    }
 
     Ok(result)
 }

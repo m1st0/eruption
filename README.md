@@ -1,18 +1,23 @@
 ![logo](docs/assets/eruption.jpg)
 
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/x3n0m0rph59/eruption/package/eruption/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/x3n0m0rph59/eruption/package/eruption/)
+![Stars](https://img.shields.io/github/license/X3n0m0rph59/eruption?style=flat-square)
 ![Stars](https://img.shields.io/github/stars/X3n0m0rph59/eruption?style=flat-square)
+
+![Stars](https://img.shields.io/crates/v/eruption-sdk?style=flat-square)
+![Stars](https://img.shields.io/crates/d/eruption-sdk?style=flat-square)
 
 # Table of Contents
 
 - [Table of Contents](#table-of-contents)
   - [Eruption - Realtime RGB LED Software for Linux](#eruption---realtime-rgb-led-software-for-linux)
-    - [Gallery](#gallery)
+    - [Image and Video Gallery](#image-and-video-gallery)
   - [Device Compatibility](#device-compatibility)
     - [Keyboards](#keyboards)
     - [Mice](#mice)
     - [Miscellaneous Devices](#miscellaneous-devices)
   - [Important Information](#important-information)
+    - [Troubleshooting](#troubleshooting)
   - [Design Overview](#design-overview)
     - [Introduction](#introduction)
     - [Systems Architecture](#systems-architecture)
@@ -40,9 +45,17 @@
 
 A Linux user-mode input and RGB LED driver for keyboards, mice and other devices
 
-### Gallery
+For a list of recent news and noteworthy changes, please refer to [CHANGES.md](CHANGES.md)
 
-[![Eruption Video](https://img.youtube.com/vi/ig_71zg14nQ/0.jpg)](https://www.youtube.com/watch?v=ig_71zg14nQ)
+### Image and Video Gallery
+
+[![Eruption Video](https://img.youtube.com/vi/ig_71zg14nQ/0.jpg)](<https://www.youtube.com/watch?v=ig_71zg14nQ>)
+
+![Eruption GUI screenshot](<docs/assets/screenshot-01.png>)
+
+![Eruption GUI screenshot](<docs/assets/screenshot-02.png>)
+
+![Eruption GUI screenshot](<docs/assets/screenshot-03.png>)
 
 ---
 
@@ -85,13 +98,34 @@ Please see [DEVICES.md](DEVICES.md) for further information
 > **Experimental** drivers are `disabled` in the default configuration!
 >
 > To enable support for experimental drivers, please edit `/etc/eruption/eruption.conf` and set
+>
 > ```toml
 > driver_maturity_level = "experimental"
+> ```
+>
+> After that, please restart the eruption daemon
+>
+> ```shell
+> sudo systemctl restart eruption.service
 > ```
 
 ## Important Information
 
-This project is still in an early stage of development, and thus may contain some possibly serious bugs.
+This project is still in the early stages of development, and thus may contain some possibly serious bugs.
+
+For a more mature RGB lighting solution please also consider the following alternatives:
+
+**OpenRGB** - OPEN SOURCE RGB LIGHTING CONTROL THAT DOESN'T DEPEND ON MANUFACTURER SOFTWARE \
+<https://openrgb.org/>\
+<https://gitlab.com/CalcProgrammer1/OpenRGB>
+
+For configuring gaming mice you may want to consider:
+
+**libratbag/piper** -
+libratbag A DBus daemon to configure input devices, mainly gaming mice
+<https://github.com/libratbag>
+
+### Troubleshooting
 
 If you ever need to forcefully disable the Eruption daemon you may do so by adding
 the following text snippet to the bootloader's (e.g. GRUB) kernel command line:
@@ -129,7 +163,7 @@ that performs an alpha blending step on each 'color map' before it finally gets 
 
 ### Systems Architecture
 
-Eruption is split into multiple independent processes: `eruption`, the core daemon that handles hardware access running 
+Eruption is split into multiple independent processes: `eruption`, the core daemon that handles hardware access running
 as `root`, and multiple session daemons, most notably `eruption-audio-proxy` that provides audio related functionality
 to the core daemon, and `eruption-process-monitor` that is able to automatically switch profiles based on system
 usage. Both of these session daemons run as the respective logged-in user.
@@ -230,11 +264,12 @@ systemctl --user enable --now eruption-audio-proxy.service
 > NOTE: Please _do not use `sudo`_ in front of the command since it has to act on the session instance of systemd
 
 Next, switch to a profile that utilizes the audio API of Eruption:
+
 ```shell
 eruptionctl switch profile spectrum-analyzer-swirl.profile
 ```
 
-Then use `pavucontrol` to assign a monitor of an audio device to the Eruption audio grabber. 
+Then use `pavucontrol` to assign a monitor of an audio device to the Eruption audio grabber.
 
 ![audio-grabber pavucontrol](docs/assets/screenshot-audio-grabber-pavucontrol.png)
 > NOTE: You have to select a profile that makes use auf the audio grabber first, otherwise the
@@ -285,6 +320,7 @@ To remove a rule, please run the following command:
 ```shell
 eruption-process-monitor rules remove 1
 ```
+
 > This will remove the rule for the window named `Skype` from the ruleset.
 
 ---
@@ -317,5 +353,7 @@ Please find a list of frequently asked questions and their respective answers at
 
 ## Contributing
 
-Contributions are welcome!
+Contributions are always welcome!
+Please find information on how to contribute at [CONTRIBUTING.md](CONTRIBUTING.md)
+
 Please see `eruption/src/scripts/examples/*.lua` directory for Lua scripting examples.

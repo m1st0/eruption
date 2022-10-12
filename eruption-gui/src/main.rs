@@ -49,9 +49,9 @@ mod constants;
 mod dbus_client;
 mod device;
 mod error_log;
-mod manifest;
 mod preferences;
 mod profiles;
+mod scripting;
 mod ui;
 mod util;
 
@@ -214,21 +214,20 @@ pub mod events {
 #[allow(dead_code)]
 fn print_header() {
     println!(
-        r#"
- Eruption is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+        r#"Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
- Eruption is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
 
- Copyright (c) 2019-2022, The Eruption Development Team
+Copyright (c) 2019-2022, The Eruption Development Team
 "#
     );
 }
@@ -267,7 +266,7 @@ pub fn switch_to_profile<P: AsRef<Path>>(file_name: P) -> Result<()> {
         //     file_name.to_string_lossy()
         // );
 
-        util::switch_profile(&*file_name.to_string_lossy())?;
+        util::switch_profile(&file_name.to_string_lossy())?;
     }
 
     Ok(())
@@ -287,7 +286,7 @@ pub fn switch_to_slot_and_profile<P: AsRef<Path>>(slot_index: usize, file_name: 
         util::switch_slot(slot_index)?;
         STATE.write().active_slot = Some(slot_index);
 
-        util::switch_profile(&*file_name.to_string_lossy())?;
+        util::switch_profile(&file_name.to_string_lossy())?;
     }
 
     Ok(())
@@ -629,8 +628,8 @@ pub fn main() -> std::result::Result<(), eyre::Error> {
             let message_dialog = MessageDialogBuilder::new()
                 .destroy_with_parent(true)
                 .message_type(gtk::MessageType::Error)
-                .text(&message)
-                .secondary_text(&secondary)
+                .text(message)
+                .secondary_text(secondary)
                 .title("Error")
                 .buttons(gtk::ButtonsType::Ok)
                 .build();

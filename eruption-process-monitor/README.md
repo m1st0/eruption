@@ -27,30 +27,36 @@ $ eruption-process-monitor rules remove 5
 
 ```shell
 $ eruption-process-monitor
-eruption-process-monitor 0.0.16
 
-X3n0m0rph59 <x3n0m0rph59@gmail.com>
+Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright (c) 2019-2022, The Eruption Development Team
 
 A daemon to monitor and introspect system processes and events
 
-USAGE:
-    eruption-process-monitor [FLAGS] [OPTIONS] [ARGS] <SUBCOMMAND>
+Usage: eruption-process-monitor [OPTIONS] <COMMAND>
 
-ARGS:
-    <HOSTNAME>    
-    <PORT>        
+Commands:
+  daemon       Run in background and monitor running processes
+  rules        Rules related sub-commands
+  completions  Generate shell completions
+  help         Print this message or the help of the given subcommand(s)
 
-FLAGS:
-    -h, --help       Print help information
-    -v, --verbose    Verbose mode (-v, -vv, -vvv, etc.)
-    -V, --version    Print version information
+Options:
+  -v, --verbose...       Verbose mode (-v, -vv, -vvv, etc.)
+  -c, --config <CONFIG>  Sets the configuration file to use
+  -h, --help             Print help information
+  -V, --version          Print version information
 
-OPTIONS:
-    -c, --config <CONFIG>    Sets the configuration file to use
-
-SUBCOMMANDS:
-    completions    Generate shell completions
-    daemon         Run in background and monitor running processes
-    help           Print this message or the help of the given subcommand(s)
-    rules          Rules related sub-commands
 ```

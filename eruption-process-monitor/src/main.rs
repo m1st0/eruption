@@ -28,7 +28,8 @@ use crate::sensors::WaylandSensorData;
 #[cfg(feature = "sensor-x11")]
 use crate::sensors::X11SensorData;
 
-use clap::{IntoApp, Parser};
+use clap::CommandFactory;
+use clap::Parser;
 use clap_complete::Shell;
 use config::Config;
 use dbus::blocking::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
@@ -265,7 +266,7 @@ pub enum SystemEvent {
 )]
 pub struct Options {
     /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[clap(short, long, parse(from_occurrences))]
+    #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
     /// Sets the configuration file to use
@@ -342,21 +343,20 @@ pub enum FileSystemEvent {
 #[allow(dead_code)]
 fn print_header() {
     println!(
-        r#"
- Eruption is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+        r#"Eruption is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
- Eruption is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+Eruption is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with Eruption.  If not, see <http://www.gnu.org/licenses/>.
 
- Copyright (c) 2019-2022, The Eruption Development Team
+Copyright (c) 2019-2022, The Eruption Development Team
 "#
     );
 }
@@ -633,19 +633,19 @@ pub fn spawn_dbus_thread(dbus_event_tx: Sender<dbus_client::Message>) -> Result<
             let slot_proxy = conn.with_proxy(
                 "org.eruption",
                 "/org/eruption/slot",
-                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS as u64),
+                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS),
             );
 
             let profile_proxy = conn.with_proxy(
                 "org.eruption",
                 "/org/eruption/profile",
-                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS as u64),
+                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS),
             );
 
             let config_proxy = conn.with_proxy(
                 "org.eruption",
                 "/org/eruption/config",
-                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS as u64),
+                Duration::from_secs(constants::DBUS_TIMEOUT_MILLIS),
             );
 
             let tx = dbus_event_tx.clone();
