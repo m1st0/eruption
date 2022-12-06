@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -162,7 +164,7 @@ pub enum Subcommands {
     #[clap(about(DAEMON_ABOUT.as_str()))]
     Daemon,
 
-    #[clap(about(COMPLETIONS_ABOUT.as_str()))]
+    #[clap(hide = true, about(COMPLETIONS_ABOUT.as_str()))]
     Completions {
         // #[clap(subcommand)]
         shell: Shell,
@@ -202,8 +204,9 @@ pub async fn run_main_loop(_ctrl_c_rx: &Receiver<bool>) -> Result<()> {
                 socket.set_recv_buffer_size(constants::NET_BUFFER_CAPACITY * 2)?;
 
                 let mut last_status_update = Instant::now();
-                let mut last_device_update =
-                    Instant::now() - Duration::from_millis(constants::DEVICE_POLL_INTERVAL + 1);
+                let mut last_device_update = Instant::now()
+                    .checked_sub(Duration::from_millis(constants::DEVICE_POLL_INTERVAL + 1))
+                    .unwrap();
 
                 'EVENT_LOOP: loop {
                     if QUIT.load(Ordering::SeqCst) {

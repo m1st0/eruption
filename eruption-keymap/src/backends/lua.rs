@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -44,6 +46,8 @@ impl super::Backend for LuaBackend {
         write!(
             &mut text,
             r"
+-- SPDX-License-Identifier: GPL-3.0-or-later
+--
 -- This file is part of Eruption.
 --
 -- Eruption is free software: you can redistribute it and/or modify
@@ -524,7 +528,7 @@ impl super::Backend for LuaBackend {
     fn write_to_file<P: AsRef<Path>>(&self, path: P, table: &KeyMappingTable) -> Result<()> {
         let text = self.generate(table)?;
 
-        fs::write(&path, &text)?;
+        fs::write(&path, text)?;
 
         Ok(())
     }

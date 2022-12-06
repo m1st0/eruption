@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -30,8 +32,8 @@ use std::sync::Arc;
 use crate::constants;
 
 use super::{
-    DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError, MouseDevice,
-    MouseDeviceTrait, MouseHidEvent, RGBA,
+    Capability, DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError,
+    MouseDevice, MouseDeviceTrait, MouseHidEvent, RGBA,
 };
 
 pub type Result<T> = super::Result<T>;
@@ -308,7 +310,7 @@ impl RoccatKoneXp {
 
 impl DeviceInfoTrait for RoccatKoneXp {
     fn get_device_capabilities(&self) -> DeviceCapabilities {
-        DeviceCapabilities {}
+        DeviceCapabilities::from([Capability::Mouse, Capability::RgbLighting])
     }
 
     fn get_device_info(&self) -> Result<super::DeviceInfo> {

@@ -1,3 +1,5 @@
+#    SPDX-License-Identifier: GPL-3.0-or-later
+#
 #    This file is part of Eruption.
 #
 #    Eruption is free software: you can redistribute it and/or modify
@@ -22,12 +24,12 @@ name = "procmon-sys"
 version = "0.0.3"
 build = "build.rs"
 authors = ["X3n0m0rph59 <x3n0m0rph59@gmail.com>", "The Eruption Development Team"]
-license = "GPL-3.0"
+license = "GPL-3.0-or-later"
 
 [lib]
 
 [dependencies]
-libc = "0.2.135"
+libc = "0.2.137"
 
 [build-dependencies]
-cc = "1.0.73"
+cc = "1.0.77"

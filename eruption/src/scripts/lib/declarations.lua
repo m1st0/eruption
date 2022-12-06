@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: GPL-3.0-or-later
+--
 -- This file is part of Eruption.
 --
 -- Eruption is free software: you can redistribute it and/or modify
@@ -17,6 +19,8 @@
 --
 -- target framerate of the core engine
 target_fps = get_target_fps()
+
+is_audio_muted = is_audio_muted or function() return false end
 
 -- canvas dimensions
 canvas_size = get_canvas_size()

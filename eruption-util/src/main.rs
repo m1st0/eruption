@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -133,6 +135,7 @@ pub enum Subcommands {
     },
 
     /// Generate shell completions
+    #[clap(hide = true, about(tr!("completions-about")))]
     Completions {
         // #[clap(subcommand)]
         shell: Shell,

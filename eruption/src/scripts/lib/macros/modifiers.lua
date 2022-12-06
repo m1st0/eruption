@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: GPL-3.0-or-later
+--
 -- This file is part of Eruption.
 --
 -- Eruption is free software: you can redistribute it and/or modify
@@ -16,6 +18,14 @@
 -- Copyright (c) 2019-2022, The Eruption Development Team
 --
 require "utilities"
+
+-- specify whether the `Eruption Virtual Keyboard` is in charge of emitting events for the
+-- function-, media-, volume/brightness and macro-keys.
+-- Set this to `false` if the secondary USB sub-device is _not grabbed_ exclusively by Eruption,
+-- therefor events originating from the sub-device will be handled by the window system.
+-- Set this to `true` if the window system can't see the events of the sub-device because it is
+-- grabbed exlusively by Eruption.
+HANDLE_EXTRA_FUNCTIONS = false
 
 ENABLE_EASY_SHIFT = true -- set this to false if you don't want to
 -- use the Easy Shift+ functionality

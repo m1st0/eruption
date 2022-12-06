@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -52,7 +54,7 @@ impl super::Backend for NativeBackend {
         let path = path.as_ref();
 
         let data = serde_json::to_string(&table)?;
-        fs::write(path, &data)?;
+        fs::write(path, data)?;
 
         Ok(())
     }

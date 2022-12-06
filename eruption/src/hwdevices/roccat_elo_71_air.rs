@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -29,8 +31,8 @@ use std::{mem::size_of, sync::Arc};
 use crate::constants::{self, DEVICE_SETTLE_MILLIS};
 
 use super::{
-    DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError, MiscDevice,
-    MiscDeviceTrait, MouseDeviceTrait, RGBA,
+    Capability, DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError,
+    MiscDevice, MiscDeviceTrait, MouseDeviceTrait, RGBA,
 };
 
 pub type Result<T> = super::Result<T>;
@@ -419,7 +421,11 @@ impl RoccatElo71Air {
 
 impl DeviceInfoTrait for RoccatElo71Air {
     fn get_device_capabilities(&self) -> DeviceCapabilities {
-        DeviceCapabilities {}
+        DeviceCapabilities::from([
+            Capability::Misc,
+            Capability::Headset,
+            Capability::RgbLighting,
+        ])
     }
 
     fn get_device_info(&self) -> Result<super::DeviceInfo> {
@@ -692,6 +698,10 @@ impl MiscDeviceTrait for RoccatElo71Air {
         if !self.is_bound {
             Err(HwDeviceError::DeviceNotBound {}.into())
         } else if !self.is_opened {
+            // the device probably has failed or has been disconnected
+            self.is_initialized = false;
+            self.has_failed = true;
+
             Err(HwDeviceError::DeviceNotOpened {}.into())
         } else if !self.is_initialized {
             Err(HwDeviceError::DeviceNotInitialized {}.into())

@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -711,6 +713,13 @@ fn run_main_loop(
                         "Could not process a keyboard event: {}",
                         event.as_ref().unwrap_err()
                     );
+
+                    (*crate::KEYBOARD_DEVICES.read()[0])
+                        .write()
+                        .as_device_mut()
+                        .close_all()
+                        .map_err(|_e| error!("An error occurred while closing the device"))
+                        .ok();
                 }
             };
 
@@ -736,6 +745,13 @@ fn run_main_loop(
                         "Could not process a mouse event: {}",
                         event.as_ref().unwrap_err()
                     );
+
+                    (*crate::MOUSE_DEVICES.read()[0])
+                        .write()
+                        .as_device_mut()
+                        .close_all()
+                        .map_err(|_e| error!("An error occurred while closing the device"))
+                        .ok();
                 }
             };
 
@@ -1314,7 +1330,6 @@ pub fn init_keyboard_device(keyboard_device: &KeyboardDevice) {
         error!(
             "This could be a permission problem, or maybe the device is locked by another process?"
         );
-        process::exit(3);
     });
 
     // send initialization handshake
@@ -1510,7 +1525,7 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
         .build()
         .unwrap_or_else(|e| {
             log::error!("Could not parse configuration file: {}", e);
-            process::exit(4);
+            process::exit(1);
         });
 
     *CONFIG.lock() = Some(config.clone());
@@ -1864,7 +1879,6 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
                 join!(shutdown_keyboards, shutdown_mice, shutdown_misc);
             } else {
                 error!("Could not enumerate connected devices");
-                process::exit(2);
             }
         }
 

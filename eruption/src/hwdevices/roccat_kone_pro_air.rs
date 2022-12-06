@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -31,8 +33,8 @@ use std::{any::Any, thread};
 use crate::constants::{self, DEVICE_SETTLE_MILLIS};
 
 use super::{
-    DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError, MouseDevice,
-    MouseDeviceTrait, MouseHidEvent, RGBA,
+    Capability, DeviceCapabilities, DeviceInfoTrait, DeviceStatus, DeviceTrait, HwDeviceError,
+    MouseDevice, MouseDeviceTrait, MouseHidEvent, RGBA,
 };
 
 pub type Result<T> = super::Result<T>;
@@ -403,6 +405,8 @@ impl RoccatKoneProAir {
                 }
 
                 cntr += 1;
+
+                thread::sleep(Duration::from_millis(10));
             }
 
             Ok(DeviceStatus(table))
@@ -479,7 +483,7 @@ impl RoccatKoneProAir {
 
 impl DeviceInfoTrait for RoccatKoneProAir {
     fn get_device_capabilities(&self) -> DeviceCapabilities {
-        DeviceCapabilities {}
+        DeviceCapabilities::from([Capability::Mouse, Capability::RgbLighting])
     }
 
     fn get_device_info(&self) -> Result<super::DeviceInfo> {
@@ -1169,11 +1173,13 @@ impl MouseDeviceTrait for RoccatKoneProAir {
                                 Err(e) => error!("Error in poll loop: {}", e),
                             }
 
-                            if poll_cntr >= 15 {
+                            if poll_cntr >= 5 {
                                 break 'POLL_LOOP;
                             }
 
                             poll_cntr += 1;
+
+                            thread::sleep(Duration::from_millis(10));
                         }
                     }
 

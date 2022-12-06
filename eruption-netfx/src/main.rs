@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -39,7 +41,7 @@ use tokio::time::Duration;
 mod backends;
 mod constants;
 mod hwdevices;
-mod utils;
+mod util;
 
 #[derive(RustEmbed)]
 #[folder = "i18n"] // path to the compiled localization resources
@@ -121,6 +123,7 @@ pub enum Subcommands {
     Ambient { frame_delay: Option<u64> },
 
     /// Generate shell completions
+    #[clap(hide = true, about(tr!("completions-about")))]
     Completions {
         // #[clap(subcommand)]
         shell: Shell,
@@ -290,7 +293,7 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
                     let mut buffer = Vec::new();
                     let _len = reader.read_to_end(&mut buffer).await?;
 
-                    let commands = utils::process_image_buffer(&buffer, &device)?;
+                    let commands = util::process_image_buffer(&buffer, &device)?;
 
                     // print and send the specified command
                     if opts.verbose > 0 {
@@ -312,7 +315,7 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
                     }
                 }
             } else {
-                let commands = utils::process_image_file(&filename, &device)?;
+                let commands = util::process_image_file(&filename, &device)?;
 
                 // print and send the specified command
                 if opts.verbose > 0 {
@@ -383,7 +386,7 @@ pub async fn async_main() -> std::result::Result<(), eyre::Error> {
                         let device =
                             hwdevices::get_keyboard_device(&model).expect(&tr!("invalid-model"));
 
-                        let _result = utils::process_image_file(&filename.path(), &device)
+                        let _result = util::process_image_file(filename.path(), &device)
                             .map_err(|e| {
                                 eprintln!("{}", tr!("image-error", message = e.to_string()))
                             })

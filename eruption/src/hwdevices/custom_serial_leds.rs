@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -61,7 +63,7 @@ impl CustomSerialLeds {
 
 impl DeviceInfoTrait for CustomSerialLeds {
     fn get_device_capabilities(&self) -> DeviceCapabilities {
-        DeviceCapabilities {}
+        DeviceCapabilities::from([])
     }
 
     fn get_device_info(&self) -> Result<super::DeviceInfo> {

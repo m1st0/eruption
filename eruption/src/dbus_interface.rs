@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -938,15 +940,19 @@ impl DbusApi {
                                             &profile_file, &script_file, &param_name, &value
                                         );
 
-                                        apply_parameter(
+                                        let applied = apply_parameter(
                                             profile_file,
                                             script_file,
                                             param_name,
                                             value,
-                                        )
-                                        .map_err(|_e| MethodErr::invalid_arg(&value))?;
-
-                                        Ok(vec![m.msg.method_return().append1(true)])
+                                        );
+                                        match applied {
+                                            Ok(()) => Ok(vec![m.msg.method_return().append1(true)]),
+                                            Err(err) => {
+                                                debug!("Could not set parameter: {}", err);
+                                                Err(MethodErr::invalid_arg(&value))
+                                            }
+                                        }
                                     } else {
                                         Err(MethodErr::failed("Authentication failed"))
                                     }

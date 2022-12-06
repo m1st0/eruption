@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -76,7 +78,7 @@ impl Manifest {
     pub fn load(script_path: &Path) -> Result<Self> {
         let (script_path, manifest_path) = verify_script_and_manifest_paths(script_path)?;
 
-        match fs::read_to_string(&manifest_path) {
+        match fs::read_to_string(manifest_path) {
             Ok(toml) => {
                 // parse manifest
                 match toml::de::from_str::<Self>(&toml) {

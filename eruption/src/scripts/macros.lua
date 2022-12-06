@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: GPL-3.0-or-later
+--
 -- This file is part of Eruption.
 --
 -- Eruption is free software: you can redistribute it and/or modify
@@ -137,7 +139,7 @@ function on_startup(config)
 end
 
 function on_hid_event(event_type, arg1)
-    debug("Macros: HID event: " .. event_type .. " args: " .. arg1)
+    trace("Macros: HID event: " .. event_type .. " args: " .. arg1)
 
     local key_code = arg1
 
@@ -204,7 +206,7 @@ function on_hid_event(event_type, arg1)
     end
 
     -- function keys (F5 - F8)
-    if ENABLE_FUNCTION_KEYS then
+    if HANDLE_EXTRA_FUNCTIONS and ENABLE_FUNCTION_KEYS then
         if is_pressed then
             if modifier_map[MODIFIER_KEY] and key_code == 40 then
                 inject_key(144, true) -- EV_KEY::FILE
@@ -229,7 +231,7 @@ function on_hid_event(event_type, arg1)
     end
 
     -- media keys (F9 - F12)
-    if ENABLE_MEDIA_KEYS then
+    if HANDLE_EXTRA_FUNCTIONS and ENABLE_MEDIA_KEYS then
         if is_pressed then
             if modifier_map[MODIFIER_KEY] and key_code == 64 then
                 inject_key(165, true) -- EV_KEY::PREVSONG
@@ -255,27 +257,29 @@ function on_hid_event(event_type, arg1)
 
     -- process other HID events
     if event_type == 3 then
-        -- Mute button event
-        if key_code == 1 then
-            inject_key(113, true) -- KEY_MUTE (audio) (down)
-        else
-            inject_key(113, false) -- KEY_MUTE (audio) (up)
-        end
-
-        local audio_muted = is_audio_muted()
-        store_bool_transient("global.audio_muted", audio_muted)
-
-        if saved_audio_muted ~= audio_muted then
-            if audio_muted then
-                debug("Audio muted (mute button)")
+        if HANDLE_EXTRA_FUNCTIONS then
+            -- Mute button event
+            if key_code == 1 then
+                inject_key(113, true) -- KEY_MUTE (audio) (down)
             else
-                debug("Audio unmuted (mute button)")
+                inject_key(113, false) -- KEY_MUTE (audio) (up)
             end
 
-            saved_audio_muted = audio_muted
-            effect_ttl = max_effect_ttl
+            local audio_muted = is_audio_muted()
+            store_bool_transient("global.audio_muted", audio_muted)
 
-            force_update = true
+            if saved_audio_muted ~= audio_muted then
+                if audio_muted then
+                    debug("Audio muted (mute button)")
+                else
+                    debug("Audio unmuted (mute button)")
+                end
+
+                saved_audio_muted = audio_muted
+                effect_ttl = max_effect_ttl
+
+                force_update = true
+            end
         end
     elseif event_type == 4 then
         -- Volume dial knob rotation
@@ -290,11 +294,11 @@ function on_hid_event(event_type, arg1)
             end
         end
 
-        if not event_handled then
-            -- adjust volume
-            overlay_state = VOLUME_OVERLAY
-            overlay_ttl = overlay_max_ttl
+        overlay_state = VOLUME_OVERLAY
+        overlay_ttl = overlay_max_ttl
 
+        if HANDLE_EXTRA_FUNCTIONS and not event_handled then
+            -- adjust volume
             if key_code == 1 then
                 inject_key(114, true) -- VOLUME_DOWN (down)
                 inject_key(114, false) -- VOLUME_DOWN (up)
@@ -316,7 +320,7 @@ function on_hid_event(event_type, arg1)
             end
         end
 
-        if not event_handled then
+        if HANDLE_EXTRA_FUNCTIONS and not event_handled then
             -- adjust brightness
             -- overlay_state = NO_OVERLAY
             -- overlay_ttl = overlay_max_ttl
@@ -346,7 +350,7 @@ function on_hid_event(event_type, arg1)
             end
         end
 
-        if not event_handled then
+        if HANDLE_EXTRA_FUNCTIONS and not event_handled then
             local current_slot = get_current_slot()
 
             if key_code == 0 then
@@ -363,7 +367,7 @@ function on_hid_event(event_type, arg1)
 end
 
 function on_mouse_hid_event(event_type, arg1)
-    debug("Macros: HID event (mouse): " .. event_type .. " args: " .. arg1)
+    trace("Macros: HID event (mouse): " .. event_type .. " args: " .. arg1)
 
     if event_type == 1 then
         -- DPI change event
@@ -415,7 +419,7 @@ function on_mouse_hid_event(event_type, arg1)
 end
 
 function on_key_down(key_index)
-    debug("Macros: Key down: Index: " .. key_index)
+    trace("Macros: Key down: Index: " .. key_index)
 
     -- update the modifier_map
     if key_index == key_name_to_index("CAPS_LOCK") then
@@ -525,7 +529,7 @@ function on_key_down(key_index)
 end
 
 function on_key_up(key_index)
-    debug("Macros: Key up: Index: " .. key_index)
+    trace("Macros: Key up: Index: " .. key_index)
 
     -- update the modifier_map
     if key_index == key_name_to_index("CAPS_LOCK") then
@@ -569,7 +573,7 @@ function on_key_up(key_index)
 end
 
 function on_mouse_button_down(button_index)
-    debug("Macros: Mouse down: Button: " .. button_index)
+    trace("Macros: Mouse down: Button: " .. button_index)
 
     -- call complex macros on the Easy Shift+ layer (layer 4)
     if modifier_map[CAPS_LOCK] and ENABLE_EASY_SHIFT and game_mode_enabled and
@@ -584,7 +588,7 @@ function on_mouse_button_down(button_index)
 end
 
 function on_mouse_button_up(button_index)
-    debug("Macros: Mouse up: Button: " .. button_index)
+    trace("Macros: Mouse up: Button: " .. button_index)
 
     -- call complex macros on the Easy Shift+ layer (layer 4)
     if modifier_map[CAPS_LOCK] and ENABLE_EASY_SHIFT and game_mode_enabled and
@@ -599,7 +603,7 @@ function on_mouse_button_up(button_index)
 end
 
 function on_mouse_wheel(direction)
-    debug("Macros: Mouse wheel: Direction: " .. direction)
+    trace("Macros: Mouse wheel: Direction: " .. direction)
 
     -- call complex macros on the Easy Shift+ layer (layer 4)
     if modifier_map[CAPS_LOCK] and ENABLE_EASY_SHIFT and game_mode_enabled and

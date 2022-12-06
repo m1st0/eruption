@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -23,7 +25,7 @@ use lazy_static::lazy_static;
 use log::*;
 use parking_lot::{Mutex, RwLock};
 use serde::{self, Deserialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::u8;
 use std::{any::Any, sync::Arc, thread};
 use std::{path::PathBuf, time::Duration};
@@ -114,8 +116,8 @@ lazy_static! {
 
         MouseDriver::register("ROCCAT", "Kone Pro",          0x1e7d, 0x2c88, &roccat_kone_pro::bind_hiddev, MaturityLevel::Experimental),
 
-        MouseDriver::register("ROCCAT", "Kone Pro Air Dongle", 0x1e7d, 0x2c8e, &roccat_kone_pro_air::bind_hiddev, MaturityLevel::Experimental),
-        MouseDriver::register("ROCCAT", "Kone Pro Air",        0x1e7d, 0x2c92, &roccat_kone_pro_air::bind_hiddev, MaturityLevel::Experimental),
+        MouseDriver::register("ROCCAT", "Kone Pro Air Dongle", 0x1e7d, 0x2c8e, &roccat_kone_pro_air::bind_hiddev, MaturityLevel::Testing),
+        MouseDriver::register("ROCCAT", "Kone Pro Air",        0x1e7d, 0x2c92, &roccat_kone_pro_air::bind_hiddev, MaturityLevel::Testing),
 
         MouseDriver::register("ROCCAT", "Kain 100 AIMO",     0x1e7d, 0x2d00, &roccat_kain_100::bind_hiddev, MaturityLevel::Experimental),
 
@@ -533,25 +535,21 @@ pub enum LedKind {
 //     }
 // }
 
-impl Into<u8> for LedKind {
+impl From<LedKind> for u8 {
     /// Convert a LedKind to an integer constant
-    fn into(self) -> u8 {
-        match self {
-            Self::Unknown => 0,
-            Self::AudioMute => 1,
-            Self::Fx => 2,
-            Self::Volume => 3,
-            Self::NumLock => 4,
-            Self::CapsLock => 5,
-            Self::ScrollLock => 6,
-            Self::GameMode => 7,
+    fn from(val: LedKind) -> Self {
+        match val {
+            LedKind::Unknown => 0,
+            LedKind::AudioMute => 1,
+            LedKind::Fx => 2,
+            LedKind::Volume => 3,
+            LedKind::NumLock => 4,
+            LedKind::CapsLock => 5,
+            LedKind::ScrollLock => 6,
+            LedKind::GameMode => 7,
         }
     }
 }
-
-/// Generic Device capabilities
-#[derive(Debug, Clone)]
-pub struct DeviceCapabilities {}
 
 /// Generic Device info
 #[derive(Debug, Clone)]
@@ -594,6 +592,37 @@ pub struct NonPnPDevice {
     pub class: String,
     pub name: String,
     pub device_file: PathBuf,
+}
+
+/// Represents the capabilities of a hardware device
+#[derive(Debug, Clone)]
+pub struct DeviceCapabilities(HashSet<Capability>);
+
+impl<const N: usize> From<[Capability; N]> for DeviceCapabilities {
+    fn from(caps: [Capability; N]) -> Self {
+        DeviceCapabilities(HashSet::from(caps))
+    }
+}
+
+/// Capabilities that hardware may have
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Capability {
+    // Categorization
+    Keyboard,
+    Mouse,
+    Misc,
+    Headset,
+    MousePad,
+
+    // Features
+    RgbLighting,
+    HardwareProfiles,
+    PowerManagement,
+
+    DpiSelection,
+    Debounce,
+    DebounceTimeSelection,
+    AngleSnapping,
 }
 
 /// Information about a generic device

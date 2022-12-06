@@ -1,3 +1,5 @@
+/*  SPDX-License-Identifier: GPL-3.0-or-later  */
+
 /*
     This file is part of Eruption.
 
@@ -27,7 +29,7 @@ use std::{any::Any, collections::HashMap};
 use crate::hwdevices::DeviceStatus;
 
 use super::{
-    DeviceCapabilities, DeviceInfoTrait, DeviceTrait, HwDeviceError, KeyboardDevice,
+    Capability, DeviceCapabilities, DeviceInfoTrait, DeviceTrait, HwDeviceError, KeyboardDevice,
     KeyboardDeviceTrait, KeyboardHidEvent, KeyboardHidEventCode, LedKind, MouseDeviceTrait, RGBA,
 };
 
@@ -81,7 +83,7 @@ impl GenericKeyboard {
 
 impl DeviceInfoTrait for GenericKeyboard {
     fn get_device_capabilities(&self) -> DeviceCapabilities {
-        DeviceCapabilities {}
+        DeviceCapabilities::from([Capability::Keyboard])
     }
 
     fn get_device_info(&self) -> Result<super::DeviceInfo> {
