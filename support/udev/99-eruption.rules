@@ -35,8 +35,8 @@ TEST=="/run/lock/eruption-hotplug-helper.lock", GOTO="eruption_end"
 
 # Permissions
 
-#ACTION=="add|change", SUBSYSTEMS=="input", RUN+="/usr/bin/setfacl -m u:eruption:rw $env{DEVNAME}"
-
+ACTION=="add|change", SUBSYSTEMS=="input", RUN+="/usr/bin/setfacl -m u:eruption:rw /dev/input/by-id/eruption-virtual-keyboard"
+ACTION=="add|change", SUBSYSTEMS=="input", RUN+="/usr/bin/setfacl -m u:eruption:rw /dev/input/by-id/eruption-virtual-mouse"
 
 # Keyboard devices
 
