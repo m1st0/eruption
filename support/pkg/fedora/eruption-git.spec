@@ -1,11 +1,11 @@
 %global OrigName eruption
 %global ShortName eruption
 
-%global commit 978a52fb7cddb16fa032a3355e5e6f1cb5321c7c
+%global commit 452197e346a2d40eb6b7ee5329da98247ae497a4
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:    eruption-git
-Version: 0.3.2
+Version: 0.3.4
 Release: 0.%{shortcommit}
 Summary: Eruption - Realtime RGB LED Driver for Linux
 URL:     https://eruption-project.org
@@ -43,7 +43,6 @@ Recommends: lua-socket-compat
 Conflicts: eruption-roccat-vulcan
 Conflicts: eruption-roccat-vulcan-git
 
-%global gittag master
 %global debug_package %{nil}
 
 %description
